@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -29,8 +30,8 @@ type SweegoDomainResource struct {
 type SweegoDomainResourceModel struct {
 	Uuid                 types.String `tfsdk:"uuid"`
 	IsVerified           types.Bool   `tfsdk:"is_verified"`
-	TrackingOpenEnabled  types.Bool   `tfsdk:"tracking_open_enabled"`
-	TrackingClickEnabled types.Bool   `tfsdk:"tracking_click_enabled"`
+	OpenTrackingEnabled  types.Bool   `tfsdk:"open_tracking_enabled"`
+	ClickTrackingEnabled types.Bool   `tfsdk:"click_tracking_enabled"`
 	Domain               types.String `tfsdk:"domain"`
 	DomainRecord         types.Object `tfsdk:"domain_record"`
 	DkimRecord           types.Object `tfsdk:"dkim_record"`
@@ -61,17 +62,20 @@ func (r *SweegoDomainResource) Schema(ctx context.Context, req resource.SchemaRe
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
+			"click_tracking_enabled": schema.BoolAttribute{
+				Description: "Whether or not click tracking should be enabled (defaults to false)",
+				Optional:    true,
+			},
+			"open_tracking_enabled": schema.BoolAttribute{
+				Description: "Whether or not open tracking should be enabled (defaults to false)",
+				Optional:    true,
+			},
 			"uuid": schema.StringAttribute{
 				Description: "UUID of the domain in sweego's system.",
 				Computed:    true,
-			},
-			"tracking_click_enabled": schema.BoolAttribute{
-				Description: "Whether or not click tracking is enabled",
-				Computed:    true,
-			},
-			"tracking_open_enabled": schema.BoolAttribute{
-				Description: "Whether or not open tracking is enabled",
-				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseNonNullStateForUnknown(),
+				},
 			},
 			"is_verified": schema.BoolAttribute{
 				Description: "Whether or not the domain is verified",
@@ -136,13 +140,41 @@ func (r *SweegoDomainResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	domain, err := r.api.WithLogger(NewLoggerAdapter(ctx)).CreateDomain(data.Domain.ValueString())
+	api := r.api.WithLogger(NewLoggerAdapter(ctx))
+
+	// Creation is a bit of a journey:
+	// * Only the result of the creation request will contain the UUID of the domain
+	// * Tracking configuration is updated in a separate request, so the state of the
+	//   created domain may immediately be incorrect
+	//
+	// This leads us to
+	// * Create the domain
+	// * Update tracking settings
+	// * Read back the domain state, but use the UUID from the creation response.
+	createdDomain, err := api.CreateDomain(data.Domain.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating domain", err.Error())
 		return
 	}
 
+	err = api.UpdateTracking(createdDomain.Uuid, sweego.SweegoTrackingChangeRequest{
+		OpenTrackingEnabled:  data.OpenTrackingEnabled.ValueBool(),
+		ClickTrackingEnabled: data.ClickTrackingEnabled.ValueBool(),
+	})
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating tracking settings", err.Error())
+		return
+	}
+
+	domain, err := api.GetDomain(createdDomain.Uuid)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading back domain status", err.Error())
+		return
+	}
+	domain.Uuid = createdDomain.Uuid
+
 	data = r.fillStateFromResponse(domain, data)
+	checkDomain(api, data, resp.Diagnostics)
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -158,20 +190,53 @@ func (r *SweegoDomainResource) Read(ctx context.Context, req resource.ReadReques
 		return
 	}
 
-	domain, err := r.api.WithLogger(NewLoggerAdapter(ctx)).GetDomain(data.Uuid.ValueString())
+	api := r.api.WithLogger(NewLoggerAdapter(ctx))
+	domain, err := api.GetDomain(data.Uuid.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading domain", fmt.Sprintf("Error reading domain: %s", err.Error()))
 		return
 	}
 
 	data = r.fillStateFromResponse(domain, data)
+	checkDomain(api, data, resp.Diagnostics)
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *SweegoDomainResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	resp.Diagnostics.AddError("Error updating domain", "Updating existing domains is not supported")
+	var data SweegoDomainResourceModel
+
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	NewLoggerAdapter(ctx).Info(fmt.Sprintf("%#v", data))
+
+	api := r.api.WithLogger(NewLoggerAdapter(ctx))
+
+	err := api.UpdateTracking(data.Uuid.ValueString(), sweego.SweegoTrackingChangeRequest{
+		OpenTrackingEnabled:  data.OpenTrackingEnabled.ValueBool(),
+		ClickTrackingEnabled: data.ClickTrackingEnabled.ValueBool(),
+	})
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating tracking settings", err.Error())
+		return
+	}
+
+	domain, err := api.GetDomain(data.Uuid.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading back domain status", err.Error())
+		return
+	}
+
+	data = r.fillStateFromResponse(domain, data)
+	checkDomain(api, data, resp.Diagnostics)
+
+	// Save data into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *SweegoDomainResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -191,12 +256,16 @@ func (r *SweegoDomainResource) Delete(ctx context.Context, req resource.DeleteRe
 }
 
 func (r *SweegoDomainResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	domain, err := r.api.WithLogger(NewLoggerAdapter(ctx)).GetDomain(req.ID)
+	api := r.api.WithLogger(NewLoggerAdapter(ctx))
+
+	domain, err := api.GetDomain(req.ID)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading domain", fmt.Sprintf("Error reading domain: %s", err.Error()))
 	}
 
 	data := r.fillStateFromResponse(domain, SweegoDomainResourceModel{})
+	data.Uuid = types.StringValue(req.ID)
+	checkDomain(api, data, resp.Diagnostics)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -207,8 +276,6 @@ func (r *SweegoDomainResource) fillStateFromResponse(response sweego.SweegoDomai
 	}
 	state.Domain = types.StringValue(response.Domain)
 	state.IsVerified = types.BoolValue(response.IsVerified)
-	state.TrackingOpenEnabled = types.BoolValue(response.TrackingOpenEnabled)
-	state.TrackingClickEnabled = types.BoolValue(response.TrackingClickEnabled)
 	state.DomainRecord = recordToObject(response.DomainRecord)
 	state.DkimRecord = recordToObject(response.DkimRecord)
 	state.DmarcRecord = recordToObject(response.DmarcRecord)
@@ -231,4 +298,32 @@ func recordToObject(record sweego.SweegoDomainRecord) types.Object {
 		"name": types.StringValue(record.Name),
 		"data": types.StringValue(record.Data),
 	})
+}
+
+func checkDomain(
+	api *sweego.SweegoApi,
+	data SweegoDomainResourceModel,
+	diagnostics diag.Diagnostics,
+) {
+	check, err := api.Check(data.Uuid.ValueString())
+	if err != nil {
+		diagnostics.AddError("Error checking domain status", fmt.Sprintf("Error checking domain status: %s", err.Error()))
+	} else {
+		logUnverifiedDomain(data.Domain.ValueString(), "DKIM", check.DkimRecord, diagnostics)
+		logUnverifiedDomain(data.Domain.ValueString(), "DMARC", check.DmarcRecord, diagnostics)
+		logUnverifiedDomain(data.Domain.ValueString(), "SPF", check.SpfRecord, diagnostics)
+		logUnverifiedDomain(data.Domain.ValueString(), "Tracking", check.TrackingRecord, diagnostics)
+		for i, checkResult := range check.InboundRecordList {
+			logUnverifiedDomain(data.Domain.ValueString(), fmt.Sprintf("Tracking[%d]", i), checkResult, diagnostics)
+		}
+	}
+}
+
+func logUnverifiedDomain(domain string, recordType string, checkResult sweego.SweegoDomainCheckSingleResult, diagnostics diag.Diagnostics) {
+	if !checkResult.Verified {
+		diagnostics.AddWarning(
+			"DNS Record not verified",
+			fmt.Sprintf("Domain %s does not have a sweego-verified %s Record: %s\nIn order to ensure verification, use the DNS-Record information returned by the resource to create a record with your DNS-Provider", domain, recordType, checkResult.ErrorString),
+		)
+	}
 }

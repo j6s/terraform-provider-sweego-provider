@@ -19,6 +19,11 @@ Sweego domain
 
 - `domain` (String) Domain name of the domain that should be managed (e.g. my-domain.eu)
 
+### Optional
+
+- `click_tracking_enabled` (Boolean) Whether or not click tracking should be enabled (defaults to false)
+- `open_tracking_enabled` (Boolean) Whether or not open tracking should be enabled (defaults to false)
+
 ### Read-Only
 
 - `dkim_record` (Object) DKIM DNS Record that needs to be set in order to send E-Mails (see [below for nested schema](#nestedatt--dkim_record))
@@ -26,8 +31,6 @@ Sweego domain
 - `domain_record` (Object) CNAME DNS Record that needs to be set in order to verify the domain (see [below for nested schema](#nestedatt--domain_record))
 - `inbound_record_list` (List of Object) List of DNS Records that need to be set, if sweego should accept E-Mails (see [below for nested schema](#nestedatt--inbound_record_list))
 - `is_verified` (Boolean) Whether or not the domain is verified
-- `tracking_click_enabled` (Boolean) Whether or not click tracking is enabled
-- `tracking_open_enabled` (Boolean) Whether or not open tracking is enabled
 - `tracking_record` (Object) CNAME DNS Record that needs to be set in order to use tracking (see [below for nested schema](#nestedatt--tracking_record))
 - `uuid` (String) UUID of the domain in sweego's system.
 

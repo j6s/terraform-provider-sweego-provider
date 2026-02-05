@@ -34,6 +34,24 @@ type SweegoDomainDetails struct {
 	TrackingRecord       SweegoDomainRecord   `json:"tracking_record"`
 }
 
+type SweegoDomainCheckSingleResult struct {
+	Verified    bool   `json:"verified"`
+	ErrorString string `json:"error_string"`
+}
+
+type SweegoDomainCheckResult struct {
+	SpfRecord         SweegoDomainCheckSingleResult   `json:"spf_record"`
+	DkimRecord        SweegoDomainCheckSingleResult   `json:"dkim_record"`
+	DmarcRecord       SweegoDomainCheckSingleResult   `json:"dmarc_record"`
+	InboundRecordList []SweegoDomainCheckSingleResult `json:"inbound_record_list"`
+	TrackingRecord    SweegoDomainCheckSingleResult   `json:"tracking_record"`
+}
+
+type SweegoTrackingChangeRequest struct {
+	ClickTrackingEnabled bool `json:"click_enabled"`
+	OpenTrackingEnabled  bool `json:"open_enabled"`
+}
+
 func (api *SweegoApi) ListDomains() ([]SweegoDomainListInformation, error) {
 	api.logger.Debug("ListDomains")
 
@@ -68,4 +86,19 @@ func (api *SweegoApi) DeleteDomain(uuid string) error {
 	api.logger.Debug(fmt.Sprintf("DeleteDomain(%#v)", uuid))
 
 	return api.executePlainRequest("DELETE", fmt.Sprintf("clients/%s/domains/%s", api.clientId, uuid), nil)
+}
+
+func (api *SweegoApi) Check(uuid string) (SweegoDomainCheckResult, error) {
+	api.logger.Debug(fmt.Sprintf("Check(%#v)", uuid))
+
+	var response SweegoDomainCheckResult
+	err := api.executePlainRequest("POST", fmt.Sprintf("clients/%s/domains/%s/check", api.clientId, uuid), &response)
+
+	return response, err
+}
+
+func (api *SweegoApi) UpdateTracking(uuid string, tracking SweegoTrackingChangeRequest) error {
+	api.logger.Debug(fmt.Sprintf("UpdateTracking(%#v, %#v)", uuid, tracking))
+
+	return api.executeJsonRequest("PUT", fmt.Sprintf("clients/%s/domains/%s/tracking", api.clientId, uuid), tracking, nil)
 }
