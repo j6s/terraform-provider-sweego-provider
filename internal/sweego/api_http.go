@@ -67,12 +67,11 @@ func (api *SweegoApi) executeRequest(
 
 	api.logger.Debug(string(responseBody))
 
+	if response.StatusCode >= 300 {
+		return fmt.Errorf("Error executing request %s %s: Invalid response status code: %d\n%s\n", method, absUrl, response.StatusCode, responseBody)
+	}
+
 	if responseData != nil {
-
-		if response.StatusCode >= 300 {
-			return fmt.Errorf("Error executing request %s %s: Invalid response status code: %d\n%s\n", method, absUrl, response.StatusCode, responseBody)
-		}
-
 		err = json.Unmarshal(responseBody, responseData)
 		if err != nil {
 			return fmt.Errorf("Error executing request %s %s: Cannot parse response body: %s\n%s", method, absUrl, err, responseBody)

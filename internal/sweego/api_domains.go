@@ -43,7 +43,7 @@ func (api *SweegoApi) ListDomains() ([]SweegoDomainListInformation, error) {
 }
 
 func (api *SweegoApi) GetDomain(uuid string) (SweegoDomainDetails, error) {
-	api.logger.Debug(fmt.Sprintf("ListDomains(%#v)", uuid))
+	api.logger.Debug(fmt.Sprintf("GetDomain(%#v)", uuid))
 
 	var response SweegoDomainDetails
 	err := api.executeGetRequest(fmt.Sprintf("clients/%s/domains/%s", api.clientId, uuid), &response)

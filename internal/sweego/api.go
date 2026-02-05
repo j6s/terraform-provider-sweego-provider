@@ -40,5 +40,6 @@ func NewSweegoApiWithBaseUrl(baseUrl string, apiKey string, clientId string) *Sw
 		apiKey:     apiKey,
 		clientId:   clientId,
 		httpClient: &http.Client{},
+		logger:     GolangLogger{},
 	}
 }
