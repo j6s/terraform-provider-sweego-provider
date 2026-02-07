@@ -1,3 +1,7 @@
+## 0.2.1 - 2026-02-07
+### Changed
+* Improved documentation for provider registry, no functional changes
+
 ## 0.2.0 - 2026-02-06
 ### Added
 * `open_tracking_enabled` and `click_tracking_enabled` are now configurable properties
