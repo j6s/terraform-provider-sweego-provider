@@ -59,12 +59,12 @@ resource "inwx_nameserver_record" "test_dkim" {
 
 ### Read-Only
 
-- `dkim_record` (Object) DKIM DNS Record that needs to be set in order to send E-Mails (see [below for nested schema](#nestedatt--dkim_record))
-- `dmarc_record` (Object) DMARC DNS Record that needs to be set in order to send E-Mails (see [below for nested schema](#nestedatt--dmarc_record))
-- `domain_record` (Object) CNAME DNS Record that needs to be set in order to verify the domain (see [below for nested schema](#nestedatt--domain_record))
-- `inbound_record_list` (List of Object) List of DNS Records that need to be set, if sweego should accept E-Mails (see [below for nested schema](#nestedatt--inbound_record_list))
+- `dkim_record` (Attributes) DKIM DNS Record that needs to be set in order to send E-Mails (see [below for nested schema](#nestedatt--dkim_record))
+- `dmarc_record` (Attributes) DMARC DNS Record that needs to be set in order to send E-Mails (see [below for nested schema](#nestedatt--dmarc_record))
+- `domain_record` (Attributes) CNAME DNS Record that needs to be set in order to verify the domain (see [below for nested schema](#nestedatt--domain_record))
+- `inbound_record_list` (Attributes List) List of DNS Records that need to be set, if sweego should accept E-Mails (see [below for nested schema](#nestedatt--inbound_record_list))
 - `is_verified` (Boolean) Whether or not the domain is verified
-- `tracking_record` (Object) CNAME DNS Record that needs to be set in order to use tracking (see [below for nested schema](#nestedatt--tracking_record))
+- `tracking_record` (Attributes) CNAME DNS Record that needs to be set in order to use tracking (see [below for nested schema](#nestedatt--tracking_record))
 - `uuid` (String) UUID of the domain in sweego's system.
 
 <a id="nestedatt--dkim_record"></a>
@@ -72,9 +72,9 @@ resource "inwx_nameserver_record" "test_dkim" {
 
 Read-Only:
 
-- `data` (String)
-- `name` (String)
-- `type` (String)
+- `data` (String) Data of the DNS Record. NOTE: For CNAME records this will end in a dot - your DNS Provider may need the data without a trailing dot. Use `trim` to remove it.
+- `name` (String) Name prefix for the DNS-Record. NOTE: This will not include the full domain - your DNS Provider may need ${name}.${domain} to be set.
+- `type` (String) Type of the DNS Record (most likely CNAME) - Possible values: A, AAAA, CNAME, TXT, SRV, TLSA, MX, NS, PTR, CAA, ALIAS, LOC, SSHFP, HINFO, RP, URI, DS, NAPTR, DNAME
 
 
 <a id="nestedatt--dmarc_record"></a>
@@ -82,9 +82,9 @@ Read-Only:
 
 Read-Only:
 
-- `data` (String)
-- `name` (String)
-- `type` (String)
+- `data` (String) Data of the DNS Record. NOTE: For CNAME records this will end in a dot - your DNS Provider may need the data without a trailing dot. Use `trim` to remove it.
+- `name` (String) Name prefix for the DNS-Record. NOTE: This will not include the full domain - your DNS Provider may need ${name}.${domain} to be set.
+- `type` (String) Type of the DNS Record (most likely CNAME) - Possible values: A, AAAA, CNAME, TXT, SRV, TLSA, MX, NS, PTR, CAA, ALIAS, LOC, SSHFP, HINFO, RP, URI, DS, NAPTR, DNAME
 
 
 <a id="nestedatt--domain_record"></a>
@@ -92,9 +92,9 @@ Read-Only:
 
 Read-Only:
 
-- `data` (String)
-- `name` (String)
-- `type` (String)
+- `data` (String) Data of the DNS Record. NOTE: For CNAME records this will end in a dot - your DNS Provider may need the data without a trailing dot. Use `trim` to remove it.
+- `name` (String) Name prefix for the DNS-Record. NOTE: This will not include the full domain - your DNS Provider may need ${name}.${domain} to be set.
+- `type` (String) Type of the DNS Record (most likely CNAME) - Possible values: A, AAAA, CNAME, TXT, SRV, TLSA, MX, NS, PTR, CAA, ALIAS, LOC, SSHFP, HINFO, RP, URI, DS, NAPTR, DNAME
 
 
 <a id="nestedatt--inbound_record_list"></a>
@@ -102,9 +102,9 @@ Read-Only:
 
 Read-Only:
 
-- `data` (String)
-- `name` (String)
-- `type` (String)
+- `data` (String) Data of the DNS Record. NOTE: For CNAME records this will end in a dot - your DNS Provider may need the data without a trailing dot. Use `trim` to remove it.
+- `name` (String) Name prefix for the DNS-Record. NOTE: This will not include the full domain - your DNS Provider may need ${name}.${domain} to be set.
+- `type` (String) Type of the DNS Record (most likely CNAME) - Possible values: A, AAAA, CNAME, TXT, SRV, TLSA, MX, NS, PTR, CAA, ALIAS, LOC, SSHFP, HINFO, RP, URI, DS, NAPTR, DNAME
 
 
 <a id="nestedatt--tracking_record"></a>
@@ -112,9 +112,9 @@ Read-Only:
 
 Read-Only:
 
-- `data` (String)
-- `name` (String)
-- `type` (String)
+- `data` (String) Data of the DNS Record. NOTE: For CNAME records this will end in a dot - your DNS Provider may need the data without a trailing dot. Use `trim` to remove it.
+- `name` (String) Name prefix for the DNS-Record. NOTE: This will not include the full domain - your DNS Provider may need ${name}.${domain} to be set.
+- `type` (String) Type of the DNS Record (most likely CNAME) - Possible values: A, AAAA, CNAME, TXT, SRV, TLSA, MX, NS, PTR, CAA, ALIAS, LOC, SSHFP, HINFO, RP, URI, DS, NAPTR, DNAME
 
 ## Import
 

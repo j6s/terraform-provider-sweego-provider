@@ -44,10 +44,19 @@ func (r *SweegoDomainResource) Metadata(ctx context.Context, req resource.Metada
 	resp.TypeName = req.ProviderTypeName + "_domain"
 }
 
-var dnsRecordAttributes = map[string]attr.Type{
-	"name": types.StringType,
-	"type": types.StringType,
-	"data": types.StringType,
+var dnsRecordAttributes = map[string]schema.Attribute{
+	"name": schema.StringAttribute{
+		Description: "Name prefix for the DNS-Record. NOTE: This will not include the full domain - your DNS Provider may need ${name}.${domain} to be set.",
+		Computed:    true,
+	},
+	"type": schema.StringAttribute{
+		Description: "Type of the DNS Record (most likely CNAME) - Possible values: A, AAAA, CNAME, TXT, SRV, TLSA, MX, NS, PTR, CAA, ALIAS, LOC, SSHFP, HINFO, RP, URI, DS, NAPTR, DNAME",
+		Computed:    true,
+	},
+	"data": schema.StringAttribute{
+		Description: "Data of the DNS Record. NOTE: For CNAME records this will end in a dot - your DNS Provider may need the data without a trailing dot. Use `trim` to remove it.",
+		Computed:    true,
+	},
 }
 
 func (r *SweegoDomainResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -81,32 +90,32 @@ func (r *SweegoDomainResource) Schema(ctx context.Context, req resource.SchemaRe
 				Description: "Whether or not the domain is verified",
 				Computed:    true,
 			},
-			"domain_record": schema.ObjectAttribute{
-				Description:    "CNAME DNS Record that needs to be set in order to verify the domain",
-				Computed:       true,
-				AttributeTypes: dnsRecordAttributes,
+			"domain_record": schema.SingleNestedAttribute{
+				Description: "CNAME DNS Record that needs to be set in order to verify the domain",
+				Computed:    true,
+				Attributes:  dnsRecordAttributes,
 			},
-			"dkim_record": schema.ObjectAttribute{
-				Description:    "DKIM DNS Record that needs to be set in order to send E-Mails",
-				Computed:       true,
-				AttributeTypes: dnsRecordAttributes,
+			"dkim_record": schema.SingleNestedAttribute{
+				Description: "DKIM DNS Record that needs to be set in order to send E-Mails",
+				Computed:    true,
+				Attributes:  dnsRecordAttributes,
 			},
-			"dmarc_record": schema.ObjectAttribute{
-				Description:    "DMARC DNS Record that needs to be set in order to send E-Mails",
-				Computed:       true,
-				AttributeTypes: dnsRecordAttributes,
+			"dmarc_record": schema.SingleNestedAttribute{
+				Description: "DMARC DNS Record that needs to be set in order to send E-Mails",
+				Computed:    true,
+				Attributes:  dnsRecordAttributes,
 			},
-			"inbound_record_list": schema.ListAttribute{
+			"inbound_record_list": schema.ListNestedAttribute{
 				Description: "List of DNS Records that need to be set, if sweego should accept E-Mails",
 				Computed:    true,
-				ElementType: types.ObjectType{
-					AttrTypes: dnsRecordAttributes,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: dnsRecordAttributes,
 				},
 			},
-			"tracking_record": schema.ObjectAttribute{
-				Description:    "CNAME DNS Record that needs to be set in order to use tracking",
-				Computed:       true,
-				AttributeTypes: dnsRecordAttributes,
+			"tracking_record": schema.SingleNestedAttribute{
+				Description: "CNAME DNS Record that needs to be set in order to use tracking",
+				Computed:    true,
+				Attributes:  dnsRecordAttributes,
 			},
 		},
 	}
@@ -285,15 +294,25 @@ func (r *SweegoDomainResource) fillStateFromResponse(response sweego.SweegoDomai
 	for i, record := range response.InboundRecordList {
 		recordList[i] = recordToObject(record)
 	}
+
+	typeMap := map[string]attr.Type{}
+	for key, value := range dnsRecordAttributes {
+		typeMap[key] = value.GetType()
+	}
+
 	state.InboundRecordList = types.ListValueMust(types.ObjectType{
-		AttrTypes: dnsRecordAttributes,
+		AttrTypes: typeMap,
 	}, recordList)
 
 	return state
 }
 
 func recordToObject(record sweego.SweegoDomainRecord) types.Object {
-	return types.ObjectValueMust(dnsRecordAttributes, map[string]attr.Value{
+	typeMap := map[string]attr.Type{}
+	for key, value := range dnsRecordAttributes {
+		typeMap[key] = value.GetType()
+	}
+	return types.ObjectValueMust(typeMap, map[string]attr.Value{
 		"type": types.StringValue(record.Type),
 		"name": types.StringValue(record.Name),
 		"data": types.StringValue(record.Data),
