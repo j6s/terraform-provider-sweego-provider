@@ -1,0 +1,1 @@
+ terraform import sweego_domain.test_domain d3b47588-c1f7-4147-afd9-893884a5c9d3

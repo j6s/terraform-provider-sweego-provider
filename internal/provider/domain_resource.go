@@ -52,7 +52,7 @@ var dnsRecordAttributes = map[string]attr.Type{
 
 func (r *SweegoDomainResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Sweego domain",
+		Description: "Sweego E-Mail Domain. After creation, this will provide you with a list of DNS Records. When these records are added, the domain can be used as an SMTP-Relay.",
 
 		Attributes: map[string]schema.Attribute{
 			"domain": schema.StringAttribute{
